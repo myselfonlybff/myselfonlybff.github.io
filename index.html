@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tic Tac Chic</title>
+  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -102,8 +104,8 @@
   <div class="container" id="home-screen">
     <h1>Tic Tac Chic 💅</h1>
     <p>Choisis un mode pour commencer :</p>
-    <button onclick="startGame()">🎮 Jouer maintenant</button>
-    <button onclick="showTutorial()">📖 Tutoriel</button>
+    <button type="button" id="start-btn">🎮 Jouer maintenant</button>
+    <button type="button" id="tutorial-btn">📖 Tutoriel</button>
   </div>
 
   <div class="container hidden" id="game-screen">
@@ -119,164 +121,191 @@
       <div class="cell" data-index="7"></div>
       <div class="cell" data-index="8"></div>
     </div>
-    <div id="score">Dernier score : {{ score }}</div>
-    <button id="replay-btn">🔁 Rejouer</button>
-    <button onclick="returnToHome()">🏠 Accueil</button>
+    <div id="score">Dernier score : 0</div>
+    <button type="button" id="replay-btn">🔁 Rejouer</button>
+    <button type="button" id="home-btn">🏠 Accueil</button>
   </div>
 
   <div class="container hidden" id="tutorial-screen">
     <h2>Comment jouer ? 🧚</h2>
     <p>Tu joues contre l’ordinateur en tant que <strong>X</strong> ! Clique sur une case vide pour poser ton symbole. Le premier à aligner 3 symboles (horizontalement, verticalement ou en diagonale) gagne.</p>
     <p>Amuse-toi bien, reine du Tic Tac Toe 👑✨</p>
-    <button onclick="returnToHome()">🏠 Retour</button>
+    <button type="button" id="tutorial-home-btn">🏠 Retour</button>
   </div>
 
-  <script>
-    const homeScreen = document.getElementById('home-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const tutorialScreen = document.getElementById('tutorial-screen');
-    const cells = document.querySelectorAll('.cell');
-    const statusDisplay = document.getElementById('game-status');
-    const replayBtn = document.getElementById('replay-btn');
-    const scoreDisplay = document.getElementById('score');
+  <py-script>
+from js import document, localStorage, window
+import random
 
-    let gameActive = true;
-    let currentPlayer = "X";
-    let gameState = Array(9).fill("");
-    // Initialisation du score via Python Flask au premier chargement
-    let score = {{ score }}; 
+WINNING_CONDITIONS = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6]
+]
 
-    const winningConditions = [
-      [0,1,2], [3,4,5], [6,7,8],
-      [0,3,6], [1,4,7], [2,5,8],
-      [0,4,8], [2,4,6]
-    ];
+game_active = True
+current_player = 'X'
+game_state = [''] * 9
+score = 0
 
-    const messages = {
-      win: () => `🎉 Joueur ${currentPlayer} a gagné !`,
-      draw: () => "🤝 Match nul !",
-      turn: () => `Tour du joueur : ${currentPlayer}`
-    };
+home_screen = document.getElementById('home-screen')
+game_screen = document.getElementById('game-screen')
+tutorial_screen = document.getElementById('tutorial-screen')
+status_display = document.getElementById('game-status')
+score_display = document.getElementById('score')
+cells = [document.querySelector(f".cell[data-index='{i}']") for i in range(9)]
+start_btn = document.getElementById('start-btn')
+tutorial_btn = document.getElementById('tutorial-btn')
+home_btn = document.getElementById('home-btn')
+tutorial_home_btn = document.getElementById('tutorial-home-btn')
+replay_btn = document.getElementById('replay-btn')
 
-    function startGame() {
-      homeScreen.classList.add('hidden');
-      tutorialScreen.classList.add('hidden');
-      gameScreen.classList.remove('hidden');
-      resetGame();
-    }
+messages = {
+    'win': lambda: f'🎉 Joueur {current_player} a gagné !',
+    'draw': lambda: '🤝 Match nul !',
+    'turn': lambda: f'Tour du joueur : {current_player}'
+}
 
-    function showTutorial() {
-      homeScreen.classList.add('hidden');
-      tutorialScreen.classList.remove('hidden');
-    }
 
-    function returnToHome() {
-      gameScreen.classList.add('hidden');
-      tutorialScreen.classList.add('hidden');
-      homeScreen.classList.remove('hidden');
-    }
+def show_screen(screen):
+    home_screen.classList.add('hidden')
+    game_screen.classList.add('hidden')
+    tutorial_screen.classList.add('hidden')
+    screen.classList.remove('hidden')
 
-    function handleCellClick(event) {
-      const clickedCell = event.target;
-      const index = clickedCell.getAttribute('data-index');
 
-      if (gameState[index] !== "" || !gameActive) return;
+def load_score():
+    global score
+    stored_score = localStorage.getItem('ticTacChicScore')
+    score = int(stored_score) if stored_score and stored_score.isdigit() else 0
+    score_display.innerText = f'Dernier score : {score}'
 
-      handleCellPlayed(clickedCell, index);
-      handleResultValidation();
 
-      if (gameActive && currentPlayer === "O") {
-        setTimeout(computerTurn, 500);
-      }
-    }
+def save_score():
+    localStorage.setItem('ticTacChicScore', str(score))
+    score_display.innerText = f'Dernier score : {score}'
 
-    function handleCellPlayed(cell, index) {
-      gameState[index] = currentPlayer;
-      cell.innerHTML = currentPlayer;
-    }
 
-    function handlePlayerChange() {
-      currentPlayer = currentPlayer === "X" ? "O" : "X";
-      statusDisplay.textContent = messages.turn();
-    }
+def reset_game(event=None):
+    global game_active, current_player, game_state
+    game_active = True
+    current_player = 'X'
+    game_state = [''] * 9
+    for cell in cells:
+        cell.innerText = ''
+        cell.classList.remove('win')
+    status_display.innerText = messages['turn']()
+    replay_btn.style.display = 'none'
 
-    function handleResultValidation() {
-      let roundWon = false;
-      let winningIndices = null;
 
-      for (let i = 0; i < winningConditions.length; i++) {
-        const [a, b, c] = winningConditions[i];
-        if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
-          roundWon = true;
-          winningIndices = [a, b, c];
-          break;
-        }
-      }
+def start_game(event=None):
+    show_screen(game_screen)
+    reset_game()
 
-      if (roundWon) {
-        highlightWinningCells(winningIndices);
-        statusDisplay.textContent = messages.win();
-        gameActive = false;
-        if (currentPlayer === 'X') {
-          // Appel API Flask pour incrémenter et sauvegarder le score côté serveur
-          fetch('/increment-score', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-              score = data.score;
-              scoreDisplay.textContent = `Dernier score : ${score}`;
-            });
-        }
-        replayBtn.style.display = 'inline-block';
-        return;
-      }
 
-      if (!gameState.includes("")) {
-        statusDisplay.textContent = messages.draw();
-        gameActive = false;
-        replayBtn.style.display = 'inline-block';
-        return;
-      }
+def show_tutorial(event=None):
+    show_screen(tutorial_screen)
 
-      handlePlayerChange();
-    }
 
-    function highlightWinningCells(indices) {
-      indices.forEach(i => cells[i].classList.add('win'));
-    }
+def return_to_home(event=None):
+    show_screen(home_screen)
 
-    function computerTurn() {
-      if (!gameActive) return;
 
-      // Appel à l'algorithme d'IA hébergé sur le serveur Python
-      fetch('/computer-turn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameState: gameState })
-      })
-      .then(response => response.json())
-      .then(data => {
-        const move = data.move;
-        if (move !== null && move !== undefined) {
-          handleCellPlayed(cells[move], move);
-          handleResultValidation();
-        }
-      });
-    }
+def highlight_winning_cells(indices):
+    for index in indices:
+        cells[index].classList.add('win')
 
-    function resetGame() {
-      gameActive = true;
-      currentPlayer = "X";
-      gameState = Array(9).fill("");
-      cells.forEach(c => {
-        c.innerHTML = "";
-        c.classList.remove("win");
-      });
-      statusDisplay.textContent = messages.turn();
-      replayBtn.style.display = 'none';
-    }
 
-    cells.forEach(cell => cell.addEventListener('click', handleCellClick));
-    replayBtn.addEventListener('click', resetGame);
-  </script>
+def find_winning_move(player):
+    for a, b, c in WINNING_CONDITIONS:
+        values = [game_state[a], game_state[b], game_state[c]]
+        if values.count(player) == 2 and '' in values:
+            return [a, b, c][values.index('')]
+    return None
+
+
+def get_random_move():
+    empty_positions = [i for i, value in enumerate(game_state) if value == '']
+    return random.choice(empty_positions) if empty_positions else None
+
+
+def handle_cell_played(cell, index):
+    game_state[index] = current_player
+    cell.innerText = current_player
+
+
+def handle_player_change():
+    global current_player
+    current_player = 'O' if current_player == 'X' else 'X'
+    status_display.innerText = messages['turn']()
+
+
+def handle_result_validation():
+    global game_active, score
+    round_won = False
+    winning_indices = None
+
+    for a, b, c in WINNING_CONDITIONS:
+        if game_state[a] and game_state[a] == game_state[b] == game_state[c]:
+            round_won = True
+            winning_indices = [a, b, c]
+            break
+
+    if round_won:
+        highlight_winning_cells(winning_indices)
+        status_display.innerText = messages['win']()
+        game_active = False
+        if current_player == 'X':
+            score += 1
+            save_score()
+        replay_btn.style.display = 'inline-block'
+        return
+
+    if '' not in game_state:
+        status_display.innerText = messages['draw']()
+        game_active = False
+        replay_btn.style.display = 'inline-block'
+        return
+
+    handle_player_change()
+
+
+def computer_turn(event=None):
+    if not game_active:
+        return
+    move = find_winning_move('O')
+    if move is None:
+        move = find_winning_move('X')
+    if move is None:
+        move = get_random_move()
+    if move is not None:
+        handle_cell_played(cells[move], move)
+        handle_result_validation()
+
+
+def handle_cell_click(event):
+    if not game_active:
+        return
+    cell = event.target
+    index = int(cell.getAttribute('data-index'))
+    if game_state[index] != '':
+        return
+    handle_cell_played(cell, index)
+    handle_result_validation()
+    if game_active and current_player == 'O':
+        window.setTimeout(computer_turn, 500)
+
+
+for cell in cells:
+    cell.addEventListener('click', handle_cell_click)
+
+start_btn.addEventListener('click', start_game)
+tutorial_btn.addEventListener('click', show_tutorial)
+home_btn.addEventListener('click', return_to_home)
+tutorial_home_btn.addEventListener('click', return_to_home)
+replay_btn.addEventListener('click', reset_game)
+
+load_score()
+  </py-script>
 </body>
 </html>
