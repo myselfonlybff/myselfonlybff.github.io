@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Chic</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #ffc0cb, #ffe4e1);
+      color: #b30059;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 400px;
+      width: 90%;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 0 20px #ffb6c1;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+      text-shadow: 1px 1px 2px #f0f;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    button {
+      background: linear-gradient(to right, #ff69b4, #ffb6c1);
+      border: none;
+      border-radius: 30px;
+      padding: 12px 20px;
+      color: white;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px 0;
+      box-shadow: 0 0 10px #f0f;
+    }
+
+    #game-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #fff0f5;
+      border-radius: 15px;
+      font-size: 2.5em;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: inset 0 0 10px #f99;
+      transition: background 0.3s;
+    }
+
+    .cell.win {
+      background: #ffe4e1;
+      box-shadow: 0 0 15px #ff69b4 inset;
+    }
+
+    #score {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    #replay-btn {
+      display: none;
+    }
+
+    @media (max-width: 500px) {
+      .cell {
+        width: 80px;
+        height: 80px;
+        font-size: 2em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="home-screen">
+    <h1>Tic Tac Chic 💅</h1>
+    <p>Choisis un mode pour commencer :</p>
+    <button onclick="startGame()">🎮 Jouer maintenant</button>
+    <button onclick="showTutorial()">📖 Tutoriel</button>
+  </div>
+
+  <div class="container hidden" id="game-screen">
+    <h2 id="game-status">Tour du joueur : X</h2>
+    <div id="game-board">
+      <div class="cell" data-index="0"></div>
+      <div class="cell" data-index="1"></div>
+      <div class="cell" data-index="2"></div>
+      <div class="cell" data-index="3"></div>
+      <div class="cell" data-index="4"></div>
+      <div class="cell" data-index="5"></div>
+      <div class="cell" data-index="6"></div>
+      <div class="cell" data-index="7"></div>
+      <div class="cell" data-index="8"></div>
+    </div>
+    <div id="score">Dernier score : {{ score }}</div>
+    <button id="replay-btn">🔁 Rejouer</button>
+    <button onclick="returnToHome()">🏠 Accueil</button>
+  </div>
+
+  <div class="container hidden" id="tutorial-screen">
+    <h2>Comment jouer ? 🧚</h2>
+    <p>Tu joues contre l’ordinateur en tant que <strong>X</strong> ! Clique sur une case vide pour poser ton symbole. Le premier à aligner 3 symboles (horizontalement, verticalement ou en diagonale) gagne.</p>
+    <p>Amuse-toi bien, reine du Tic Tac Toe 👑✨</p>
+    <button onclick="returnToHome()">🏠 Retour</button>
+  </div>
+
+  <script>
+    const homeScreen = document.getElementById('home-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const tutorialScreen = document.getElementById('tutorial-screen');
+    const cells = document.querySelectorAll('.cell');
+    const statusDisplay = document.getElementById('game-status');
+    const replayBtn = document.getElementById('replay-btn');
+    const scoreDisplay = document.getElementById('score');
+
+    let gameActive = true;
+    let currentPlayer = "X";
+    let gameState = Array(9).fill("");
+    // Initialisation du score via Python Flask au premier chargement
+    let score = {{ score }}; 
+
+    const winningConditions = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    const messages = {
+      win: () => `🎉 Joueur ${currentPlayer} a gagné !`,
+      draw: () => "🤝 Match nul !",
+      turn: () => `Tour du joueur : ${currentPlayer}`
+    };
+
+    function startGame() {
+      homeScreen.classList.add('hidden');
+      tutorialScreen.classList.add('hidden');
+      gameScreen.classList.remove('hidden');
+      resetGame();
+    }
+
+    function showTutorial() {
+      homeScreen.classList.add('hidden');
+      tutorialScreen.classList.remove('hidden');
+    }
+
+    function returnToHome() {
+      gameScreen.classList.add('hidden');
+      tutorialScreen.classList.add('hidden');
+      homeScreen.classList.remove('hidden');
+    }
+
+    function handleCellClick(event) {
+      const clickedCell = event.target;
+      const index = clickedCell.getAttribute('data-index');
+
+      if (gameState[index] !== "" || !gameActive) return;
+
+      handleCellPlayed(clickedCell, index);
+      handleResultValidation();
+
+      if (gameActive && currentPlayer === "O") {
+        setTimeout(computerTurn, 500);
+      }
+    }
+
+    function handleCellPlayed(cell, index) {
+      gameState[index] = currentPlayer;
+      cell.innerHTML = currentPlayer;
+    }
+
+    function handlePlayerChange() {
+      currentPlayer = currentPlayer === "X" ? "O" : "X";
+      statusDisplay.textContent = messages.turn();
+    }
+
+    function handleResultValidation() {
+      let roundWon = false;
+      let winningIndices = null;
+
+      for (let i = 0; i < winningConditions.length; i++) {
+        const [a, b, c] = winningConditions[i];
+        if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+          roundWon = true;
+          winningIndices = [a, b, c];
+          break;
+        }
+      }
+
+      if (roundWon) {
+        highlightWinningCells(winningIndices);
+        statusDisplay.textContent = messages.win();
+        gameActive = false;
+        if (currentPlayer === 'X') {
+          // Appel API Flask pour incrémenter et sauvegarder le score côté serveur
+          fetch('/increment-score', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+              score = data.score;
+              scoreDisplay.textContent = `Dernier score : ${score}`;
+            });
+        }
+        replayBtn.style.display = 'inline-block';
+        return;
+      }
+
+      if (!gameState.includes("")) {
+        statusDisplay.textContent = messages.draw();
+        gameActive = false;
+        replayBtn.style.display = 'inline-block';
+        return;
+      }
+
+      handlePlayerChange();
+    }
+
+    function highlightWinningCells(indices) {
+      indices.forEach(i => cells[i].classList.add('win'));
+    }
+
+    function computerTurn() {
+      if (!gameActive) return;
+
+      // Appel à l'algorithme d'IA hébergé sur le serveur Python
+      fetch('/computer-turn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameState: gameState })
+      })
+      .then(response => response.json())
+      .then(data => {
+        const move = data.move;
+        if (move !== null && move !== undefined) {
+          handleCellPlayed(cells[move], move);
+          handleResultValidation();
+        }
+      });
+    }
+
+    function resetGame() {
+      gameActive = true;
+      currentPlayer = "X";
+      gameState = Array(9).fill("");
+      cells.forEach(c => {
+        c.innerHTML = "";
+        c.classList.remove("win");
+      });
+      statusDisplay.textContent = messages.turn();
+      replayBtn.style.display = 'none';
+    }
+
+    cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+    replayBtn.addEventListener('click', resetGame);
+  </script>
+</body>
+</html>
