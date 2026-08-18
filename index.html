@@ -1,324 +1,93 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tic Tac Chic</title>
-  
-  <!-- Mise à jour corrective de PyScript pour masquer le texte brut -->
-  <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
-  <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-
-  <style>
-    * {
-      box-sizing: border-box;
-      padding: 0;
-      margin: 0;
-    }
-
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to right, #ffc0cb, #ffe4e1);
-      color: #b30059;
-      text-align: center;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .container {
-      max-width: 400px;
-      width: 90%;
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 0 20px #ffb6c1;
-    }
-
-    h1 {
-      font-size: 2em;
-      margin-bottom: 10px;
-      text-shadow: 1px 1px 2px #f0f;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    button {
-      background: linear-gradient(to right, #ff69b4, #ffb6c1);
-      border: none;
-      border-radius: 30px;
-      padding: 12px 20px;
-      color: white;
-      font-size: 1em;
-      font-weight: bold;
-      cursor: pointer;
-      margin: 10px 0;
-      box-shadow: 0 0 10px #f0f;
-    }
-
-    #game-board {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin: 20px 0;
-    }
-
-    .cell {
-      width: 100px;
-      height: 100px;
-      background: #fff0f5;
-      border-radius: 15px;
-      font-size: 2.5em;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      box-shadow: inset 0 0 10px #f99;
-      transition: background 0.3s;
-    }
-
-    .cell.win {
-      background: #ffe4e1;
-      box-shadow: 0 0 15px #ff69b4 inset;
-    }
-
-    #score {
-      font-weight: bold;
-      margin-top: 10px;
-    }
-
-    #replay-btn {
-      display: none;
-    }
-
-    @media (max-width: 500px) {
-      .cell {
-        width: 80px;
-        height: 80px;
-        font-size: 2em;
-      }
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Puzzle vidéo collaboratif WebRTC en temps réel.">
+  <title>WebRTC Video Puzzle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container" id="home-screen">
-    <h1>Tic Tac Chic 💅</h1>
-    <p>Choisis un mode pour commencer :</p>
-    <button type="button" id="start-btn">🎮 Jouer maintenant</button>
-    <button type="button" id="tutorial-btn">📖 Tutoriel</button>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Accueil WebRTC Video Puzzle">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <span><strong>WebRTC</strong> Video Puzzle</span>
+      </a>
+      <div class="session-meta">
+        <span class="connection-status"><span class="status-dot"></span>Prêt à jouer</span>
+        <span class="player-pill" id="player-count">1/6 joueur</span>
+        <span class="timer" id="timer">00:00</span>
+        <button class="icon-button" id="share-header" title="Copier le lien de la session" aria-label="Copier le lien de la session">↗</button>
+        <button class="leave-button" id="leave-session">Quitter</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="game-column" aria-labelledby="game-title">
+        <div class="game-heading">
+          <div>
+            <p class="eyebrow">Salon privé · <span id="session-id">PUZ-7K4M</span></p>
+            <h1 id="game-title">Assemblez le flux, pièce par pièce.</h1>
+          </div>
+          <div class="heading-actions">
+            <button class="secondary-button" id="reset-puzzle"><span class="rotate-icon">↻</span> Mélanger</button>
+            <button class="primary-button" id="share-main">♧ <span>Inviter</span></button>
+          </div>
+        </div>
+
+        <div class="puzzle-stage" id="puzzle-stage">
+          <div class="stage-grid" aria-hidden="true"></div>
+          <div class="puzzle-board" id="puzzle-board" aria-label="Plateau de puzzle vidéo"></div>
+          <div class="stage-hint"><span class="hint-icon">⌘</span><span>Glissez les pièces vers leur emplacement</span></div>
+          <div class="video-badge"><span class="status-dot"></span><span id="source-badge">Votre image · exemple</span></div>
+        </div>
+
+        <div class="game-footer">
+          <div class="camera-preview">
+            <div class="camera-placeholder"><video id="camera-preview" autoplay muted playsinline></video><img id="photo-preview" alt="Votre photo" hidden><span>Vous</span><strong id="preview-initials">NS</strong></div>
+            <div class="camera-info"><strong>Votre flux vidéo</strong><span id="media-state">Caméra et micro actifs</span></div>
+          </div>
+          <div class="media-controls">
+            <button class="media-button" id="camera-toggle" title="Activer ou désactiver la caméra" aria-label="Activer ou désactiver la caméra">▣</button>
+            <button class="media-button" id="mic-toggle" title="Activer ou désactiver le micro" aria-label="Activer ou désactiver le micro">⌁</button>
+          </div>
+          <div class="progress-wrap"><div class="progress-label"><span>Progression</span><strong id="progress-label">0 / 6 pièces</strong></div><div class="progress-track"><span id="progress-bar"></span></div></div>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <nav class="tabs" aria-label="Navigation du salon">
+          <button class="tab active" data-tab="board">◈ <span>Plateau</span></button>
+          <button class="tab locked" data-tab="chat" id="chat-tab" title="Requis : 2 joueurs minimum">◇ <span>Chat</span><small>⌑</small></button>
+          <button class="tab" data-tab="players">♙ <span>Joueurs</span></button>
+          <button class="tab" data-tab="share">↗ <span>Partager</span></button>
+        </nav>
+
+        <div class="sidebar-content" id="tab-board">
+          <div class="panel-heading"><div><p class="eyebrow">Configuration</p><h2>Votre partie</h2></div><span class="live-label"><span class="status-dot"></span> Solo</span></div>
+          <div class="control-section source-section"><label class="section-label">Source de votre puzzle</label><div class="source-actions"><button class="source-button selected" id="start-camera" type="button"><span>◉</span><strong>Me filmer</strong><small>Caméra en direct</small></button><button class="source-button" id="capture-photo" type="button"><span>◎</span><strong>Prendre une photo</strong><small>Depuis votre visage</small></button><button class="source-button" id="choose-image" type="button"><span>▧</span><strong>Galerie</strong><small>Choisir une image</small></button></div><input id="image-input" type="file" accept="image/*" hidden><canvas id="capture-canvas" hidden></canvas></div>
+          <div class="source-note" id="source-note">Autorisez la caméra pour transformer votre vidéo en puzzle.</div>
+          <div class="control-section"><label class="section-label">Taille du puzzle</label><div class="grid-options" id="grid-options"><button class="grid-option selected" data-pieces="6"><strong>6</strong><span>Départ</span></button><button class="grid-option" data-pieces="9"><strong>9</strong><span>Avancé</span></button><button class="grid-option" data-pieces="12"><strong>12</strong><span>Expert</span></button><button class="grid-option" data-pieces="16"><strong>16</strong><span>Maître</span></button></div></div>
+          <div class="rule"></div>
+          <div class="tip-panel"><span class="tip-symbol">✦</span><div><strong>Prêt pour le multi ?</strong><p>Invitez un ami pour débloquer le chat et les interactions en temps réel.</p></div></div>
+          <button class="wide-primary" id="invite-panel">↗ Inviter un joueur</button>
+        </div>
+
+        <div class="sidebar-content hidden" id="tab-chat"><div class="panel-heading"><div><p class="eyebrow">WebRTC DataChannel</p><h2>Messages</h2></div><span class="muted-label">En attente</span></div><div class="empty-state"><span class="empty-icon">◇</span><strong>Chat verrouillé</strong><p>Le chat s'active dès qu'un deuxième joueur rejoint le salon.</p></div><form class="chat-form" id="chat-form"><input id="chat-input" placeholder="Écrire un message..." disabled><button class="send-button" disabled aria-label="Envoyer">➤</button></form></div>
+
+        <div class="sidebar-content hidden" id="tab-players"><div class="panel-heading"><div><p class="eyebrow">Participants</p><h2>Dans le salon</h2></div><span class="player-pill small">1 / 6</span></div><div class="players-list"><div class="player-row"><div class="avatar local">NS<span class="online-dot"></span></div><div><strong>Nlend Sharon</strong><span>Hôte · Vous</span></div><span class="mic-state">⌁</span></div></div><button class="wide-secondary" id="invite-player">↗ Copier le lien d'invitation</button></div>
+
+        <div class="sidebar-content hidden" id="tab-share"><div class="panel-heading"><div><p class="eyebrow">Lien de session</p><h2>Inviter vos amis</h2></div><span class="share-mark">↗</span></div><p class="share-copy">Partagez ce lien pour rejoindre votre salon de puzzle vidéo.</p><div class="share-url" id="share-url"></div><button class="wide-primary" id="copy-link">▣ Copier le lien</button><p class="share-note">Jusqu'à 6 joueurs · Aucun compte requis</p></div>
+      </aside>
+    </main>
   </div>
 
-  <div class="container hidden" id="game-screen">
-    <h2 id="game-status">Tour du joueur : X</h2>
-    <div id="game-board">
-      <div class="cell" data-index="0"></div>
-      <div class="cell" data-index="1"></div>
-      <div class="cell" data-index="2"></div>
-      <div class="cell" data-index="3"></div>
-      <div class="cell" data-index="4"></div>
-      <div class="cell" data-index="5"></div>
-      <div class="cell" data-index="6"></div>
-      <div class="cell" data-index="7"></div>
-      <div class="cell" data-index="8"></div>
-    </div>
-    <div id="score">Dernier score : 0</div>
-    <button type="button" id="replay-btn">🔁 Rejouer</button>
-    <button type="button" id="home-btn">🏠 Accueil</button>
-  </div>
-
-  <div class="container hidden" id="tutorial-screen">
-    <h2>Comment jouer ? 🧚</h2>
-    <p>Tu joues contre l’ordinateur en tant que <strong>X</strong> ! Clique sur une case vide pour poser ton symbole. Le premier à aligner 3 symboles (horizontalement, verticalement ou en diagonale) gagne.</p>
-    <br>
-    <p>Amuse-toi bien, reine du Tic Tac Toe 👑✨</p>
-    <button type="button" id="tutorial-home-btn">🏠 Retour</button>
-  </div>
-
-  <!-- Le type="py" cible correctement le moteur PyScript moderne -->
-  <script type="py">
- from js import document, localStorage, window
-import pyodide
-import random
-
-WINNING_CONDITIONS = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8],
-    [0, 3, 6], [1, 4, 7], [2, 5, 8],
-    [0, 4, 8], [2, 4, 6]
-]
-
-game_active = True
-current_player = 'X'
-game_state = [''] * 9
-score = 0
-
-home_screen = None
-game_screen = None
-tutorial_screen = None
-status_display = None
-score_display = None
-cells = []
-start_btn = None
-tutorial_btn = None
-home_btn = None
-tutorial_home_btn = None
-replay_btn = None
-
-messages = {
-    'win': lambda: f'🎉 Joueur {current_player} a gagné !',
-    'draw': lambda: '🤝 Match nul !',
-    'turn': lambda: f'Tour du joueur : {current_player}'
-}
-
-def show_screen(screen):
-    home_screen.classList.add('hidden')
-    game_screen.classList.add('hidden')
-    tutorial_screen.classList.add('hidden')
-    screen.classList.remove('hidden')
-
-def load_score():
-    global score
-    stored_score = localStorage.getItem('ticTacChicScore')
-    score = int(stored_score) if stored_score and stored_score.isdigit() else 0
-    score_display.innerText = f'Dernier score : {score}'
-
-def save_score():
-    localStorage.setItem('ticTacChicScore', str(score))
-    score_display.innerText = f'Dernier score : {score}'
-
-def highlight_winning_cells(indices):
-    for index in indices:
-        cells[index].classList.add('win')
-
-def find_winning_move(player):
-    for a, b, c in WINNING_CONDITIONS:
-        values = [game_state[a], game_state[b], game_state[c]]
-        if values.count(player) == 2 and '' in values:
-            return [a, b, c][values.index('')]
-    return None
-
-def get_random_move():
-    empty_positions = [i for i, value in enumerate(game_state) if value == '']
-    return random.choice(empty_positions) if empty_positions else None
-
-def handle_player_change():
-    global current_player
-    current_player = 'O' if current_player == 'X' else 'X'
-    status_display.innerText = messages['turn']()
-
-def handle_result_validation():
-    global game_active, score
-    round_won = False
-    winning_indices = None
-
-    for a, b, c in WINNING_CONDITIONS:
-        if game_state[a] and game_state[a] == game_state[b] == game_state[c]:
-            round_won = True
-            winning_indices = [a, b, c]
-            break
-
-    if round_won:
-        highlight_winning_cells(winning_indices)
-        status_display.innerText = messages['win']()
-        game_active = False
-        if current_player == 'X':
-            score += 1
-            save_score()
-        replay_btn.style.display = 'inline-block'
-        return
-
-    if '' not in game_state:
-        status_display.innerText = messages['draw']()
-        game_active = False
-        replay_btn.style.display = 'inline-block'
-        return
-
-    handle_player_change()
-
-def handle_cell_played(cell, index):
-    game_state[index] = current_player
-    cell.innerText = current_player
-
-def computer_turn():
-    if not game_active:
-        return
-    move = find_winning_move('O')
-    if move is None:
-        move = find_winning_move('X')
-    if move is None:
-        move = get_random_move()
-    if move is not None:
-        handle_cell_played(cells[move], move)
-        handle_result_validation()
-
-def computer_turn_callback():
-    computer_turn()
-
-def handle_cell_click(event):
-    if not game_active or current_player == 'O':
-        return
-    cell = event.currentTarget
-    index = int(cell.getAttribute('data-index'))
-    if game_state[index] != '':
-        return
-    handle_cell_played(cell, index)
-    handle_result_validation()
-    if game_active and current_player == 'O':
-        window.setTimeout(pyodide.ffi.create_proxy(computer_turn_callback), 500)
-
-def reset_game(event=None):
-    global game_active, current_player, game_state
-    game_active = True
-    current_player = 'X'
-    game_state = [''] * 9
-    for cell in cells:
-        cell.innerText = ''
-        cell.classList.remove('win')
-    status_display.innerText = messages['turn']()
-    replay_btn.style.display = 'none'
-
-def start_game(event=None):
-    show_screen(game_screen)
-    reset_game()
-
-def show_tutorial(event=None):
-    show_screen(tutorial_screen)
-
-def return_to_home(event=None):
-    show_screen(home_screen)
-
-def init():
-    global home_screen, game_screen, tutorial_screen, status_display, score_display
-    global cells, start_btn, tutorial_btn, home_btn, tutorial_home_btn, replay_btn
-
-    home_screen = document.getElementById('home-screen')
-    game_screen = document.getElementById('game-screen')
-    tutorial_screen = document.getElementById('tutorial-screen')
-    status_display = document.getElementById('game-status')
-    score_display = document.getElementById('score')
-    cells = [document.querySelector(f".cell[data-index='{i}']") for i in range(9)]
-    start_btn = document.getElementById('start-btn')
-    tutorial_btn = document.getElementById('tutorial-btn')
-    home_btn = document.getElementById('home-btn')
-    tutorial_home_btn = document.getElementById('tutorial-home-btn')
-    replay_btn = document.getElementById('replay-btn')
-
-    for cell in cells:
-        cell.addEventListener('click', pyodide.ffi.create_proxy(handle_cell_click))
-
-    start_btn.addEventListener('click', pyodide.ffi.create_proxy(start_game))
-    tutorial_btn.addEventListener('click', pyodide.ffi.create_proxy(show_tutorial))
-    home_btn.addEventListener('click', pyodide.ffi.create_proxy(return_to_home))
-    tutorial_home_btn.addEventListener('click', pyodide.ffi.create_proxy(return_to_home))
-    replay_btn.addEventListener('click', pyodide.ffi.create_proxy(reset_game))
-
-    load_score()
-    show_screen(home_screen)
-
-# Lancement de l'initialisation
-init()
-  </script>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop hidden" id="leave-modal"><div class="modal"><span class="modal-icon">!</span><h2>Quitter le salon ?</h2><p>Votre progression locale sera conservée uniquement sur cet appareil.</p><div class="modal-actions"><button class="secondary-button" id="cancel-leave">Annuler</button><button class="danger-button" id="confirm-leave">Quitter</button></div></div></div>
+  <script src="app.js"></script>
 </body>
 </html>
