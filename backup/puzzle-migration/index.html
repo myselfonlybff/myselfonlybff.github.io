@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Chic</title>
+  
+  <!-- Mise à jour corrective de PyScript pour masquer le texte brut -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+  <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #ffc0cb, #ffe4e1);
+      color: #b30059;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 400px;
+      width: 90%;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 0 20px #ffb6c1;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+      text-shadow: 1px 1px 2px #f0f;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    button {
+      background: linear-gradient(to right, #ff69b4, #ffb6c1);
+      border: none;
+      border-radius: 30px;
+      padding: 12px 20px;
+      color: white;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px 0;
+      box-shadow: 0 0 10px #f0f;
+    }
+
+    #game-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #fff0f5;
+      border-radius: 15px;
+      font-size: 2.5em;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: inset 0 0 10px #f99;
+      transition: background 0.3s;
+    }
+
+    .cell.win {
+      background: #ffe4e1;
+      box-shadow: 0 0 15px #ff69b4 inset;
+    }
+
+    #score {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    #replay-btn {
+      display: none;
+    }
+
+    @media (max-width: 500px) {
+      .cell {
+        width: 80px;
+        height: 80px;
+        font-size: 2em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="home-screen">
+    <h1>Tic Tac Chic 💅</h1>
+    <p>Choisis un mode pour commencer :</p>
+    <button type="button" id="start-btn">🎮 Jouer maintenant</button>
+    <button type="button" id="tutorial-btn">📖 Tutoriel</button>
+  </div>
+
+  <div class="container hidden" id="game-screen">
+    <h2 id="game-status">Tour du joueur : X</h2>
+    <div id="game-board">
+      <div class="cell" data-index="0"></div>
+      <div class="cell" data-index="1"></div>
+      <div class="cell" data-index="2"></div>
+      <div class="cell" data-index="3"></div>
+      <div class="cell" data-index="4"></div>
+      <div class="cell" data-index="5"></div>
+      <div class="cell" data-index="6"></div>
+      <div class="cell" data-index="7"></div>
+      <div class="cell" data-index="8"></div>
+    </div>
+    <div id="score">Dernier score : 0</div>
+    <button type="button" id="replay-btn">🔁 Rejouer</button>
+    <button type="button" id="home-btn">🏠 Accueil</button>
+  </div>
+
+  <div class="container hidden" id="tutorial-screen">
+    <h2>Comment jouer ? 🧚</h2>
+    <p>Tu joues contre l’ordinateur en tant que <strong>X</strong> ! Clique sur une case vide pour poser ton symbole. Le premier à aligner 3 symboles (horizontalement, verticalement ou en diagonale) gagne.</p>
+    <br>
+    <p>Amuse-toi bien, reine du Tic Tac Toe 👑✨</p>
+    <button type="button" id="tutorial-home-btn">🏠 Retour</button>
+  </div>
+
+  <!-- Le type="py" cible correctement le moteur PyScript moderne -->
+  <script type="py">
+ from js import document, localStorage, window
+import pyodide
+import random
+
+WINNING_CONDITIONS = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6]
+]
+
+game_active = True
+current_player = 'X'
+game_state = [''] * 9
+score = 0
+
+home_screen = None
+game_screen = None
+tutorial_screen = None
+status_display = None
+score_display = None
+cells = []
+start_btn = None
+tutorial_btn = None
+home_btn = None
+tutorial_home_btn = None
+replay_btn = None
+
+messages = {
+    'win': lambda: f'🎉 Joueur {current_player} a gagné !',
+    'draw': lambda: '🤝 Match nul !',
+    'turn': lambda: f'Tour du joueur : {current_player}'
+}
+
+def show_screen(screen):
+    home_screen.classList.add('hidden')
+    game_screen.classList.add('hidden')
+    tutorial_screen.classList.add('hidden')
+    screen.classList.remove('hidden')
+
+def load_score():
+    global score
+    stored_score = localStorage.getItem('ticTacChicScore')
+    score = int(stored_score) if stored_score and stored_score.isdigit() else 0
+    score_display.innerText = f'Dernier score : {score}'
+
+def save_score():
+    localStorage.setItem('ticTacChicScore', str(score))
+    score_display.innerText = f'Dernier score : {score}'
+
+def highlight_winning_cells(indices):
+    for index in indices:
+        cells[index].classList.add('win')
+
+def find_winning_move(player):
+    for a, b, c in WINNING_CONDITIONS:
+        values = [game_state[a], game_state[b], game_state[c]]
+        if values.count(player) == 2 and '' in values:
+            return [a, b, c][values.index('')]
+    return None
+
+def get_random_move():
+    empty_positions = [i for i, value in enumerate(game_state) if value == '']
+    return random.choice(empty_positions) if empty_positions else None
+
+def handle_player_change():
+    global current_player
+    current_player = 'O' if current_player == 'X' else 'X'
+    status_display.innerText = messages['turn']()
+
+def handle_result_validation():
+    global game_active, score
+    round_won = False
+    winning_indices = None
+
+    for a, b, c in WINNING_CONDITIONS:
+        if game_state[a] and game_state[a] == game_state[b] == game_state[c]:
+            round_won = True
+            winning_indices = [a, b, c]
+            break
+
+    if round_won:
+        highlight_winning_cells(winning_indices)
+        status_display.innerText = messages['win']()
+        game_active = False
+        if current_player == 'X':
+            score += 1
+            save_score()
+        replay_btn.style.display = 'inline-block'
+        return
+
+    if '' not in game_state:
+        status_display.innerText = messages['draw']()
+        game_active = False
+        replay_btn.style.display = 'inline-block'
+        return
+
+    handle_player_change()
+
+def handle_cell_played(cell, index):
+    game_state[index] = current_player
+    cell.innerText = current_player
+
+def computer_turn():
+    if not game_active:
+        return
+    move = find_winning_move('O')
+    if move is None:
+        move = find_winning_move('X')
+    if move is None:
+        move = get_random_move()
+    if move is not None:
+        handle_cell_played(cells[move], move)
+        handle_result_validation()
+
+def computer_turn_callback():
+    computer_turn()
+
+def handle_cell_click(event):
+    if not game_active or current_player == 'O':
+        return
+    cell = event.currentTarget
+    index = int(cell.getAttribute('data-index'))
+    if game_state[index] != '':
+        return
+    handle_cell_played(cell, index)
+    handle_result_validation()
+    if game_active and current_player == 'O':
+        window.setTimeout(pyodide.ffi.create_proxy(computer_turn_callback), 500)
+
+def reset_game(event=None):
+    global game_active, current_player, game_state
+    game_active = True
+    current_player = 'X'
+    game_state = [''] * 9
+    for cell in cells:
+        cell.innerText = ''
+        cell.classList.remove('win')
+    status_display.innerText = messages['turn']()
+    replay_btn.style.display = 'none'
+
+def start_game(event=None):
+    show_screen(game_screen)
+    reset_game()
+
+def show_tutorial(event=None):
+    show_screen(tutorial_screen)
+
+def return_to_home(event=None):
+    show_screen(home_screen)
+
+def init():
+    global home_screen, game_screen, tutorial_screen, status_display, score_display
+    global cells, start_btn, tutorial_btn, home_btn, tutorial_home_btn, replay_btn
+
+    home_screen = document.getElementById('home-screen')
+    game_screen = document.getElementById('game-screen')
+    tutorial_screen = document.getElementById('tutorial-screen')
+    status_display = document.getElementById('game-status')
+    score_display = document.getElementById('score')
+    cells = [document.querySelector(f".cell[data-index='{i}']") for i in range(9)]
+    start_btn = document.getElementById('start-btn')
+    tutorial_btn = document.getElementById('tutorial-btn')
+    home_btn = document.getElementById('home-btn')
+    tutorial_home_btn = document.getElementById('tutorial-home-btn')
+    replay_btn = document.getElementById('replay-btn')
+
+    for cell in cells:
+        cell.addEventListener('click', pyodide.ffi.create_proxy(handle_cell_click))
+
+    start_btn.addEventListener('click', pyodide.ffi.create_proxy(start_game))
+    tutorial_btn.addEventListener('click', pyodide.ffi.create_proxy(show_tutorial))
+    home_btn.addEventListener('click', pyodide.ffi.create_proxy(return_to_home))
+    tutorial_home_btn.addEventListener('click', pyodide.ffi.create_proxy(return_to_home))
+    replay_btn.addEventListener('click', pyodide.ffi.create_proxy(reset_game))
+
+    load_score()
+    show_screen(home_screen)
+
+# Lancement de l'initialisation
+init()
+  </script>
+</body>
+</html>
